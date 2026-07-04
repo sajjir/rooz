@@ -12,12 +12,19 @@ export class LocalStorageProvider implements StorageProvider {
   name = "HTML5 LocalStorage";
 
   async get(): Promise<any> {
-    const raw = localStorage.getItem("second_brain_db");
+    // Check if there is old data to migrate
+    const oldRaw = localStorage.getItem("second_brain_db");
+    if (oldRaw) {
+      localStorage.setItem("rooz_db", oldRaw);
+      localStorage.removeItem("second_brain_db");
+      console.log("[StorageMigration] Safely migrated state from second_brain_db to rooz_db");
+    }
+    const raw = localStorage.getItem("rooz_db");
     return raw ? JSON.parse(raw) : null;
   }
 
   async set(data: any): Promise<void> {
-    localStorage.setItem("second_brain_db", JSON.stringify(data));
+    localStorage.setItem("rooz_db", JSON.stringify(data));
   }
 }
 

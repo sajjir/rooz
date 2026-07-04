@@ -18,7 +18,7 @@ export interface AIResponse {
 }
 
 export interface AIProvider {
-  id: "gemini" | "openai" | "mock";
+  id: "gemini" | "openai" | "claude" | "mock";
   name: string;
   generate(request: AIRequest, config?: AIProviderConfig): Promise<AIResponse>;
 }
@@ -31,7 +31,7 @@ export class GeminiProvider implements AIProvider {
   name = "Google Gemini";
 
   async generate(request: AIRequest, config?: AIProviderConfig): Promise<AIResponse> {
-    const key = config?.apiKey || process.env.GEMINI_API_KEY || (typeof window !== "undefined" ? (window as any).GEMINI_API_KEY : "");
+    const key = config?.apiKey || process.env.GEMINI_API_KEY;
     if (!key) {
       throw new Error("Gemini API key is required but was not provided. Configure it in settings.");
     }
@@ -63,7 +63,7 @@ export class OpenAIProvider implements AIProvider {
   name = "OpenAI GPT";
 
   async generate(request: AIRequest, config?: AIProviderConfig): Promise<AIResponse> {
-    const key = config?.apiKey;
+    const key = config?.apiKey || process.env.OPENAI_API_KEY;
     if (!key) {
       throw new Error("OpenAI API key is required.");
     }
@@ -100,6 +100,49 @@ export class OpenAIProvider implements AIProvider {
 }
 
 /**
+ * Anthropic Claude Provider
+ */
+export class ClaudeProvider implements AIProvider {
+  id = "claude" as const;
+  name = "Anthropic Claude";
+
+  async generate(request: AIRequest, config?: AIProviderConfig): Promise<AIResponse> {
+    const key = config?.apiKey || process.env.CLAUDE_API_KEY;
+    if (!key) {
+      throw new Error("Claude API key is required.");
+    }
+    const model = config?.modelName || "claude-3-5-sonnet-latest";
+    const url = config?.baseUrl || "https://api.anthropic.com/v1/messages";
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: model,
+        system: request.systemPrompt,
+        messages: [{ role: "user", content: request.userPrompt }],
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Claude API error: ${err}`);
+    }
+
+    const data = await response.json();
+    return {
+      text: data.content?.[0]?.text || "",
+      raw: data,
+    };
+  }
+}
+
+/**
  * Mock Provider
  */
 export class MockProvider implements AIProvider {
@@ -119,6 +162,7 @@ export class AIService {
   private providers: Record<string, AIProvider> = {
     gemini: new GeminiProvider(),
     openai: new OpenAIProvider(),
+    claude: new ClaudeProvider(),
     mock: new MockProvider(),
   };
 
