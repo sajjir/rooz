@@ -1,0 +1,6 @@
+{
+  "name": "Rooz",
+  "description": "Rooz (Day in Persian) is a Daily Operating System based on 'One Day. One Direction' (یک روز، یک مسیر). It reduces cognitive load by prioritizing a single focus and offering peaceful quick-capture and AI morning planning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

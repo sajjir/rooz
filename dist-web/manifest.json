@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Rooz Daily Operating System",
+  "version": "1.0.0",
+  "description": "An offline-capable peaceful Daily Operating System to answer only one question every morning: What matters today?",
+  "permissions": [
+    "storage",
+    "notifications",
+    "sidePanel",
+    "alarms",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Rooz Quick Capture",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+Space",
+        "mac": "Alt+Shift+Space"
+      }
+    },
+    "toggle-sidepanel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+B",
+        "mac": "Command+Shift+B"
+      },
+      "description": "Toggle Rooz Side Panel"
+    }
+  }
+}
