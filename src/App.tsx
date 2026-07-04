@@ -6,15 +6,14 @@ import {
 import { useTranslation } from "react-i18next";
 import FocusMode from "./components/FocusMode";
 import Dashboard from "./components/Dashboard";
-import AiBrain from "./components/AiBrain";
 import NewTabHome from "./components/NewTabHome";
 import { Project, Item, FocusSession, TimelineEntry, AutomationLog, IntegrationConfig, NotificationEntry } from "./types";
 import { useStore } from "../packages/shared/services/StoreService";
 
 export default function App() {
   const { t, i18n } = useTranslation();
-  // Navigation tabs: 'newtab' | 'focus' | 'dashboard' | 'ai'
-  const [activeTab, setActiveTab] = useState<'newtab' | 'focus' | 'dashboard' | 'ai'>('newtab');
+  // Navigation tabs: 'newtab' | 'focus' | 'dashboard'
+  const [activeTab, setActiveTab] = useState<'newtab' | 'focus' | 'dashboard'>('newtab');
   const [theme, setTheme] = useState<'light' | 'dark' | 'nature'>(() => {
     return (localStorage.getItem("rooz_theme") as 'light' | 'dark' | 'nature') || "light";
   });
@@ -258,25 +257,6 @@ export default function App() {
               <Layers className="w-4 h-4" />
               {t("app.tab_dashboard")}
             </button>
-            <button
-              onClick={() => setActiveTab('ai')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeTab === 'ai'
-                  ? theme === 'dark'
-                    ? "bg-zinc-800 text-purple-400 shadow-sm font-bold"
-                    : theme === 'nature'
-                      ? "bg-[#faf9f5] text-emerald-800 shadow-xs font-bold"
-                      : "bg-white text-indigo-600 shadow-sm font-bold"
-                  : theme === 'dark'
-                    ? "text-zinc-500 hover:text-zinc-300 font-bold"
-                    : theme === 'nature'
-                      ? "text-emerald-950/60 hover:text-[#2c3e2e] font-bold"
-                      : "text-slate-500 hover:text-slate-800 font-bold bg-slate-50/20"
-              }`}
-            >
-              <Sparkles className={`w-4 h-4 animate-pulse ${theme === 'dark' ? 'text-purple-400' : theme === 'nature' ? 'text-emerald-600' : 'text-indigo-500'}`} />
-              {t("app.tab_ai")}
-            </button>
           </nav>
 
           {/* User Details & Action Triggers */}
@@ -400,15 +380,6 @@ export default function App() {
           <Layers className="w-4 h-4" />
           {t("app.tab_dashboard").split(" ")[0]}
         </button>
-        <button
-          onClick={() => setActiveTab('ai')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex flex-col items-center gap-1 ${
-            activeTab === 'ai' ? "text-indigo-600 bg-indigo-50/50 font-bold animate-pulse" : "text-slate-500"
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          {t("app.tab_ai").split(" ")[0]}
-        </button>
       </div>
 
       {/* CORE VIEW STAGE */}
@@ -452,12 +423,6 @@ export default function App() {
             onCreateProject={handleCreateProject}
             onToggleIntegration={handleToggleIntegration}
             onTriggerAutomation={handleTriggerAutomation}
-          />
-        )}
-
-        {activeTab === 'ai' && (
-          <AiBrain
-            onRefreshAll={init}
           />
         )}
       </main>

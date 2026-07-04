@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { aiService } from "../shared/services/AIService";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -13,24 +13,33 @@ const DB_FILE = path.join(process.cwd(), "db.json");
 
 app.use(express.json());
 
-// Initialize Gemini SDK lazily to avoid crashing on startup if key is missing
-let aiClient: GoogleGenAI | null = null;
-function getGeminiClient(): GoogleGenAI | null {
-  if (!aiClient) {
+// Helper to configure AIService based on env
+function configureAIService(): string {
+  const providerId = process.env.AI_PROVIDER || "gemini";
+  let useMock = false;
+
+  if (providerId === "gemini") {
     const key = process.env.GEMINI_API_KEY;
-    if (key && key !== "MY_GEMINI_API_KEY") {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: {
-            "User-Agent": "aistudio-build",
-          },
-        },
-      });
+    if (!key || key === "MY_GEMINI_API_KEY") {
+      useMock = true;
+    }
+  } else if (providerId === "openai") {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key || key === "MY_OPENAI_API_KEY") {
+      useMock = true;
+    }
+  } else if (providerId === "claude") {
+    const key = process.env.CLAUDE_API_KEY;
+    if (!key || key === "MY_CLAUDE_API_KEY") {
+      useMock = true;
     }
   }
-  return aiClient;
+
+  const activeProvider = useMock ? "mock" : providerId;
+  aiService.setActiveProvider(activeProvider);
+  return activeProvider;
 }
+
 
 // Default Seed Data
 const defaultDb = {
@@ -365,16 +374,17 @@ app.post("/api/morning-plan", async (req, res) => {
   const locale = req.body.locale || "en";
   const isFa = locale === "fa";
   const db = readDb();
-  const aiClient = getGeminiClient();
+  
+  const activeProvider = configureAIService();
 
   const unfinished = db.items.filter((i: any) => i.type === "task" && i.status !== "completed");
   const primaryProject = db.projects.length > 0 ? db.projects[0] : null;
 
-  if (aiClient) {
+  if (activeProvider !== "mock") {
     try {
       const history = db.focusSessions ? db.focusSessions.slice(-5) : [];
-      const prompt = `You are the core Morning Planner AI of a personal Rooz Daily Operating System.
-Generate a structured, highly personalized daily focus plan for the user based on their workspace snapshot.
+      const systemPrompt = `You are the core Morning Planner AI of a personal Rooz Daily Operating System.`;
+      const userPrompt = `Generate a structured, highly personalized daily focus plan for the user based on their workspace snapshot.
 
 Active primary project: ${JSON.stringify(primaryProject)}
 Unfinished tasks: ${JSON.stringify(unfinished)}
@@ -394,18 +404,16 @@ Respond strictly with a JSON object conforming to this schema (no wrapping, no m
 
 IMPORTANT: The user's active interface language is ${isFa ? "Persian (Farsi)" : "English"}. You MUST write all the text values of this JSON object (planTitle, focusProjectName, highImpactTask, morningSession, afternoonSession, eveningReview, logicalRationale) in ${isFa ? "Persian (Farsi)" : "English"}.`;
 
-      const response = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        },
+      const response = await aiService.generate({
+        systemPrompt,
+        userPrompt,
+        responseMimeType: "application/json",
       });
 
       const parsed = JSON.parse(response.text.trim());
       return res.json(parsed);
     } catch (err) {
-      console.error("Gemini failed to generate morning plan, falling back", err);
+      console.error("AI service failed to generate morning plan, falling back", err);
     }
   }
 
@@ -765,69 +773,13 @@ app.post("/api/automation/trigger", (req, res) => {
   res.json({ log: newLog, timeline: db.timeline[0] });
 });
 
-// AI INSIGHTS ENDPOINT (using @google/genai on the server)
+// AI INSIGHTS ENDPOINT (using AIService on the server)
 app.post("/api/ai/insights", async (req, res) => {
   const db = readDb();
-  const aiClient = getGeminiClient();
   const locale = req.body.locale || "en";
 
-  if (!aiClient) {
-    // Fallback if API key is not configured or is placeholder
-    const mockAnalysis = locale === "fa" ? {
-      id: "ai-" + Date.now(),
-      timestamp: new Date().toISOString(),
-      insightsText: `### 🧠 گزارش تشخیصی شناختی (حالت نمایشی)
-
-شما در حال حاضر در حالت نمایشی کار می‌کنید زیرا کلید **GEMINI_API_KEY** پیکربندی نشده است. برای فعال کردن ردیابی شناختی هوشمند زنده، لطفاً کلید API خود را در بخش **تنظیمات > رازها** در منوی بالای صفحه وارد کنید.
-
-#### 📊 شاخص‌های فعلی و ممیزی فضای کار:
-*   **آستانه به تعویق انداختن**: ما **۲ وظیفه** را پیدا کردیم که مکرراً به تعویق افتاده‌اند. کار باقی‌مانده آداپتور (*پیکربندی آداپتور پایگاه داده Express*) تاکنون **۴ بار مجزا** به تعویق افتاده است که نشان‌دهنده وجود اصطکاک بالقوه در تعریف دقیق کارهای فنی است.
-*   **پروژه‌های رها شده**: پروژه‌هایی با کارهای معوقه معلق که در ۷ روز گذشته هیچ زمان تمرکزی برایشان ثبت نشده است. پروژه *هسته استدلال هوش مصنوعی* فاقد هرگونه کار تکمیل‌شده و فاقد زمان تمرکز فعال است.
-*   **مجموعه ایده‌های اجرا نشده**: شما در حال حاضر **۲ ایده فعال** دارید که به صورت راکد باقی مانده‌اند.
-*   **امتیاز تمرکز عمیق**: بر اساس بازه‌ها و کیفیت تمرکز ثبت‌شده، امتیاز شما **۷.۳ از ۱۰** است. شما در حال ایجاد چرخه‌های تمرکز خوبی هستید اما مدیریت نوسانات انرژی جای بهبود دارد.
-*   **شاخص ریسک خستگی مفرط**: **متوسط**. آخرین جلسه تمرکز ثبت‌شده شما در روز گذشته نشان‌دهنده خستگی شناختی و خروج زودهنگام است. حتماً از بازه‌های طلایی تمرکز عمیق خود محافظت کنید!`,
-      deepWorkScore: 7.3,
-      burnoutRisk: "medium" as const,
-      completionRate: 40,
-      postponedRatio: 25,
-      trends: [
-        "به تعویق انداختن مداوم فرآیند پیاده‌سازی آداپتور پایگاه داده",
-        "تجمع و رکود بالا در بخش ایده‌های معلق در جعبه شنی",
-        "افت شدید سطح انرژی در جلسات کاری اواخر بعد از ظهر"
-      ],
-      suggestions: [
-        "کار بزرگ پیاده‌سازی آداپتور Express را به ۳ کار فرعی، ملموس و ۲۰ دقیقه‌ای تفکیک کنید.",
-        "فردا ۳۰ دقیقه اول زمان کاری خود را منحصراً به پیشبرد ایده 'پرس‌وجوهای خود-ترمیم‌شونده پایگاه‌داده تحت هوش مصنوعی' اختصاص دهید.",
-        "برای مقابله با فرسودگی ذهنی، جلسات کاری تمرکز عمیق خود را پس از ساعت ۱۶:۰۰ محدود کنید."
-      ]
-    } : {
-      id: "ai-" + Date.now(),
-      timestamp: new Date().toISOString(),
-      insightsText: `### 🧠 Cognitive Diagnostics Report (DEMO MODE)
-
-You are running in Demo Mode because the **GEMINI_API_KEY** is not configured. Please supply your API key in **Settings > Secrets** in the top menu to enable live cognitive tracking.
-
-#### 📊 Current Metrics & Workspace Audit:
-*   **Postponement Threshold**: We found **2 tasks** repeatedly delayed. Outstanding adapter work (*Configure Express database adapter*) has been deferred **4 separate times**, signaling potential friction in task definition.
-*   **Abandoned Projects**: Projects with pending backlogs but no active focus minutes are flagged. *AI Reasoning Core* has no completed tasks and zero focus time logged in the last 7 days.
-*   **Unexecuted Idea Pool**: You have **2 active ideas** sitting stagnant.
-*   **Deep Work Score**: Based on focus durations and scores, your score is **7.3/10**. You are building strong focus loops, but energy management can be improved.
-*   **Burnout Risk Indicator**: **Moderate**. Your focus session logged yesterday (*session-3*) indicates fatigue and a premature exit. Guard your deep work windows!`,
-      deepWorkScore: 7.3,
-      burnoutRisk: "medium" as const,
-      completionRate: 40,
-      postponedRatio: 25,
-      trends: ["Frequent deferral of Database adapters", "High idea backlog stagnation", "Afternoon session energy dips"],
-      suggestions: [
-        "Slice the Express adapter task into 3 distinct, smaller 20-minute tasks.",
-        "Dedicate the first 30 minutes of tomorrow's focus block strictly to flushing out 'AI-driven self-healing database queries'.",
-        "Set strict limits on focus blocks after 4 PM to combat cognitive exhaustion.",
-      ],
-    };
-    db.aiAnalyses.unshift(mockAnalysis);
-    writeDb(db);
-    return res.json(mockAnalysis);
-  }
+  // Configure active provider based on environment variables
+  const activeProvider = configureAIService();
 
   try {
     const activeTasks = db.items.filter((i: any) => i.type === "task" && i.status !== "completed");
@@ -848,9 +800,9 @@ You are running in Demo Mode because the **GEMINI_API_KEY** is not configured. P
       focusSessions: focus.map((f: any) => ({ duration: f.duration, score: f.deepWorkScore, energy: f.energyLevel, notes: f.notes })),
     };
 
-    const prompt = `You are the core cognitive engine of a highly advanced personal Rooz dashboard. Your task is to analyze the user's workspace performance metrics and output a rigorous diagnostic report.
+    const systemPrompt = `You are the core cognitive engine of a highly advanced personal Rooz dashboard. Your task is to analyze the user's workspace performance metrics and output a rigorous diagnostic report.`;
 
-Here is the JSON snapshot of the user's workspace data:
+    const userPrompt = `Here is the JSON snapshot of the user's workspace data:
 ${JSON.stringify(dataSnapshot, null, 2)}
 
 You MUST analyze the following:
@@ -877,12 +829,10 @@ You must respond in STRICTOR JSON matching the following schema. Return ONLY val
   "suggestions": ["actionable advice 1", "actionable advice 2"]
 }`;
 
-    const response = await aiClient.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    const response = await aiService.generate({
+      systemPrompt,
+      userPrompt,
+      responseMimeType: "application/json",
     });
 
     const parsed = JSON.parse(response.text.trim());
@@ -896,8 +846,8 @@ You must respond in STRICTOR JSON matching the following schema. Return ONLY val
     writeDb(db);
     res.json(finalAnalysis);
   } catch (error) {
-    console.error("Gemini insights generation failed, fallback to mock", error);
-    res.status(500).json({ error: "Gemini analysis failed" });
+    console.error("AI insights generation failed", error);
+    res.status(500).json({ error: "AI analysis failed" });
   }
 });
 
@@ -910,120 +860,8 @@ app.post("/api/ai/agent", async (req, res) => {
     return res.status(400).json({ error: "Query is required." });
   }
 
-  const aiClient = getGeminiClient();
-
-  // Prepare standard fallback if no key exists
-  if (!aiClient) {
-    let summary = "";
-    let mockMutations = [] as any[];
-
-    const lower = query.toLowerCase();
-    if (lower.includes("reminder") || lower.includes("notify")) {
-      mockMutations.push({
-        type: "create_notification",
-        data: {
-          title: locale === "fa" ? "یادآور نماینده هوش مصنوعی" : "AI Agent Reminder",
-          message: locale === "fa" 
-            ? `یادآور برنامه‌ریزی‌شده: "${query.replace(/remind me to |send reminder |یادآوری کن که |ارسال یادآور /i, "")}"`
-            : `Scheduled reminder: "${query.replace(/remind me to |send reminder /i, "")}"`,
-        },
-      });
-      summary = locale === "fa"
-        ? `من با موفقیت یک یادآور اعلان بر اساس دستور شما ثبت کردم: "${query}". (حالت نمایشی)`
-        : `I have successfully registered a notification reminder based on your instruction: "${query}". (Demo Mode)`;
-    } else if (lower.includes("meeting") || lower.includes("schedule") || lower.includes("جلسه") || lower.includes("برنامه")) {
-      mockMutations.push({
-        type: "create_item",
-        data: {
-          title: locale === "fa" ? "همگام‌سازی جلسه برنامه‌ریزی شده" : "Scheduled Meeting Sync",
-          content: locale === "fa" ? "جلسه برنامه‌ریزی شده خودکار در جدول زمانی ثبت شد." : "Auto-scheduled meeting logged onto timeline.",
-          type: "task",
-          priority: "medium",
-          energy: "low",
-          symbol: "Calendar",
-          estimatedDuration: 30,
-        },
-      });
-      summary = locale === "fa"
-        ? `یک وظیفه همگام‌سازی جلسه ۳۰ دقیقه‌ای در فضای کاری شما ثبت شد. (حالت نمایشی)`
-        : `Logged a 30m meeting sync task into your workspace items. (Demo Mode)`;
-    } else if (lower.includes("break project") || lower.includes("break down") || lower.includes("tasks") || lower.includes("تقسیم") || lower.includes("شکستن")) {
-      if (locale === "fa") {
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "راه‌اندازی داکرفایل توسعه", type: "task", priority: "high", energy: "high", symbol: "Cpu" },
-        });
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "طراحی مدل‌های نقشه‌برداری پایگاه داده", type: "task", priority: "medium", energy: "medium", symbol: "Database" },
-        });
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "نوشتن تست‌های واحد برای بخش احراز هویت", type: "task", priority: "low", energy: "low", symbol: "CheckCircle" },
-        });
-        summary = `محدوده پروژه را بررسی کردم و آن را به ۳ وظیفه هدفمند با وضوح بالا تقسیم کردم: راه‌اندازی داکر، نقشه‌برداری طرحواره و تست‌های احراز هویت. (حالت نمایشی)`;
-      } else {
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "Set up development dockerfile", type: "task", priority: "high", energy: "high", symbol: "Cpu" },
-        });
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "Draft schema mapping models", type: "task", priority: "medium", energy: "medium", symbol: "Database" },
-        });
-        mockMutations.push({
-          type: "create_item",
-          data: { title: "Write unit tests for authentication", type: "task", priority: "low", energy: "low", symbol: "CheckCircle" },
-        });
-        summary = `Analyzed the project scope and decomposed it into 3 targeted, high-clarity tasks: Dockerfile setup, schema mappings, and authentication unit testing. (Demo Mode)`;
-      }
-    } else if (lower.includes("convert") || lower.includes("idea") || lower.includes("تبدیل") || lower.includes("ایده")) {
-      const idea = db.items.find((i: any) => i.type === "idea");
-      if (idea) {
-        mockMutations.push({
-          type: "create_project",
-          data: {
-            name: idea.title,
-            description: locale === "fa" ? `پروژه ایجاد شده از ایده: "${idea.content}"` : `Project evolved from idea: "${idea.content}"`,
-            color: "#f43f5e",
-            symbol: "Brain",
-          },
-        });
-        mockMutations.push({
-          type: "update_item",
-          id: idea.id,
-          updates: { status: "completed" },
-        });
-        summary = locale === "fa"
-          ? `ایده اجرا نشده شما با عنوان "${idea.title}" را پیدا کردم، آن را به یک پروژه کامل تبدیل کردم و ایده اصلی را بایگانی کردم. (حالت نمایشی)`
-          : `Located your unexecuted idea "${idea.title}", successfully evolved it into a full Project, and archived the original idea. (Demo Mode)`;
-      } else {
-        summary = locale === "fa"
-          ? `هیچ ایده اجرا نشده‌ای برای تبدیل یافت نشد. لطفاً ابتدا یک ایده جدید در تب کارهای معوقه اضافه کنید! (حالت نمایشی)`
-          : `No unexecuted ideas found to convert. Please add a new Idea in the Items tab first! (Demo Mode)`;
-      }
-    } else {
-      mockMutations.push({
-        type: "create_item",
-        data: {
-          title: query.length > 50 ? query.substring(0, 47) + "..." : query,
-          content: locale === "fa" ? `ایجاد شده به طور خودکار از طریق دستور نماینده: "${query}"` : `Created autonomously via Agent command: "${query}"`,
-          type: "task",
-          priority: "medium",
-          energy: "medium",
-          symbol: "Zap",
-          estimatedDuration: 45,
-        },
-      });
-      summary = locale === "fa"
-        ? `دستور پردازش شد: "${query}". یک وظیفه به‌طور خودکار ایجاد شد. (برای فعال‌سازی فرامین هوشمند واقعی، کلید GEMINI_API_KEY خود را در تنظیمات وارد کنید)`
-        : `Processed command: "${query}". Created a task item autonomously. (Demo Mode - Setup your GEMINI_API_KEY for fully intelligent mutations)`;
-    }
-
-    executeMutations(db, mockMutations);
-    writeDb(db);
-    return res.json({ summary, mutations: mockMutations });
-  }
+  // Configure active provider based on environment variables
+  const activeProvider = configureAIService();
 
   try {
     const snapshot = {
@@ -1070,21 +908,44 @@ You MUST respond strictly with JSON conforming to this schema:
   ]
 }`;
 
-    const response = await aiClient.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: systemPrompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    const userPrompt = `Process the command: "${query}" with locale: "${locale}"`;
+
+    const response = await aiService.generate({
+      systemPrompt,
+      userPrompt,
+      responseMimeType: "application/json",
     });
 
     const parsed = JSON.parse(response.text.trim());
-    executeMutations(db, parsed.mutations || []);
+    const mutations = parsed.mutations || [];
+
+    // Special fallback override for converting idea in mock mode to ensure perfect DB mutations match
+    if (activeProvider === "mock" && (query.toLowerCase().includes("convert") || query.toLowerCase().includes("تبدیل"))) {
+      const idea = db.items.find((i: any) => i.type === "idea");
+      if (idea) {
+        mutations[0] = {
+          type: "create_project",
+          data: {
+            name: idea.title,
+            description: locale === "fa" ? `پروژه ایجاد شده از ایده: "${idea.content}"` : `Project evolved from idea: "${idea.content}"`,
+            color: "#f43f5e",
+            symbol: "Brain",
+          }
+        };
+        mutations.push({
+          type: "update_item",
+          id: idea.id,
+          updates: { status: "completed" }
+        });
+      }
+    }
+
+    executeMutations(db, mutations);
     writeDb(db);
 
     res.json({
       summary: parsed.summary,
-      mutations: parsed.mutations || [],
+      mutations: mutations,
     });
   } catch (error) {
     console.error("AI Agent execution error", error);

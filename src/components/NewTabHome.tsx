@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Project, Item, FocusSession } from "../types";
+import AiBrain from "./AiBrain";
+
 
 interface NewTabHomeProps {
   projects: Project[];
@@ -736,82 +738,7 @@ export default function NewTabHome({
 
             {/* C. INVISIBLE AI DIAGNOSTICS */}
             {activeSecondary === 'ai' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-2 border-current/10">
-                  <h4 className="font-bold text-sm flex items-center gap-1.5">
-                    <Brain className="w-4 h-4 text-purple-500 animate-pulse" />
-                    {i18n.language === "fa" ? "بینش‌های هوش مصنوعی نامرئی" : "Invisible AI Diagnostics & Insights"}
-                  </h4>
-                  <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                    SILENT RUNNING
-                  </span>
-                </div>
-
-                <p className="text-xs opacity-75 leading-relaxed">
-                  {i18n.language === "fa"
-                    ? "هوش مصنوعی به صورت کاملا نامرئی در پس‌زمینه فعالیت می‌کند، کارهای تکراری را حذف، پروژه‌های رها شده را شناسایی و وضعیت شما را بهینه‌سازی می‌کند:"
-                    : "The AI operates strictly in silence in the background, analyzing patterns, cleaning duplicate logs, detecting blockages, and compiling micro-summaries."
-                  }
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                    isDark ? "bg-zinc-950 border-zinc-800" : "bg-slate-50 border-slate-200"
-                  }`}>
-                    <span className="text-[9px] text-orange-400 font-bold uppercase tracking-wider block">
-                      {i18n.language === "fa" ? "● تحلیل انباشتگی کارها" : "● Delayed Tasks Analysis"}
-                    </span>
-                    <p className="opacity-80">
-                      {i18n.language === "fa"
-                        ? "۲ کار معوقه با تاخیر مواجه شده‌اند. هوش مصنوعی بدون ایجاد هیاهو، کار را به دوره صبح با انرژی بالا منتقل کرد."
-                        : "Detected outstanding postponed tasks. Silently elevated backlog weight to keep morning blocks clear."
-                      }
-                    </p>
-                  </div>
-
-                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                    isDark ? "bg-zinc-950 border-zinc-800" : "bg-slate-50 border-slate-200"
-                  }`}>
-                    <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">
-                      {i18n.language === "fa" ? "● پروژه‌های رها شده" : "● Abandoned Projects Tracker"}
-                    </span>
-                    <p className="opacity-80">
-                      {i18n.language === "fa"
-                        ? "پروژه فعال بدون تلاش تمرکز در ۴ روز گذشته شناسایی شد. پیشنهاد ۱۵ دقیقه کار نرمشی در برنامه ثبت شد."
-                        : "Flagged inactive horizon projects with zero focus entries. Appended an ambient warm-up block."
-                      }
-                    </p>
-                  </div>
-
-                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                    isDark ? "bg-zinc-950 border-zinc-800" : "bg-slate-50 border-slate-200"
-                  }`}>
-                    <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider block">
-                      {i18n.language === "fa" ? "● یکپارچه‌سازی وب‌سایت‌ها" : "● Auto Bookmark Cleanups"}
-                    </span>
-                    <p className="opacity-80">
-                      {i18n.language === "fa"
-                        ? "۲ آدرس بوکمارک مشابه پاکسازی و به بخش منابع مراجع اضافه شدند."
-                        : "Identified 2 identical bookmarked references. Silently deduplicated and merged into resources."
-                      }
-                    </p>
-                  </div>
-
-                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                    isDark ? "bg-zinc-950 border-zinc-800" : "bg-slate-50 border-slate-200"
-                  }`}>
-                    <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">
-                      {i18n.language === "fa" ? "● بازتاب فعالیت امروز" : "● High-Impact Completion"}
-                    </span>
-                    <p className="opacity-80">
-                      {i18n.language === "fa"
-                        ? `امروز ${todayCompletedCount} کار معلق را به نتیجه رساندید. بهره‌وری ذهن شما فوق‌العاده است.`
-                        : `Successfully logged ${todayCompletedCount} completions today. Cognitive burden decreased by 14%.`
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <AiBrain onRefreshAll={onRefresh} />
             )}
 
             {/* D. SETTINGS & THREE THEMES PANEL */}

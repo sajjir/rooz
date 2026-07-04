@@ -113,17 +113,6 @@ export default function AiBrain({ onRefreshAll }: AiBrainProps) {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2">
-          <Brain className="w-5 h-5 text-indigo-500 animate-pulse" />
-          {t("ai.title")}
-        </h2>
-        <p className="text-sm text-slate-500 mt-1">
-          {t("ai.subtitle")}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Side: Autonomous Agent Command Center */}
         <div className="lg:col-span-7 space-y-6">
@@ -137,7 +126,7 @@ export default function AiBrain({ onRefreshAll }: AiBrainProps) {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span className="font-mono text-[10px] text-slate-500">{t("ai.terminal_listening")}</span>
                 </div>
               </div>
