@@ -18,6 +18,8 @@ export interface Project {
   symbol: string;
   status: 'active' | 'archived' | 'completed';
   createdAt: string;
+  path: string[];        // جدید — مسیر کامل breadcrumb، طول ۱ تا ۳، مثلاً ["محصولات من", "کدنویسی", "Automation Hub"]
+  isAiGenerated: boolean; // جدید — true اگر AI این پروژه/دسته رو خودش ساخته، نه کاربر
 }
 
 export interface TimelineEntry {

@@ -3,11 +3,12 @@ import {
   Sparkles, Sun, Moon, Calendar, Zap, Lock, Pause, Play, 
   Brain, Target, Coffee, Send, RefreshCw, Star, ArrowRight, Check,
   Sliders, Database, Network, ShieldCheck, UserCheck, Flame, Compass,
-  Plus, CheckSquare, Trash2, Heart, Trees
+  Plus, CheckSquare, Trash2, Heart, Trees, ChevronDown, FolderTree
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Project, Item, FocusSession } from "../types";
 import AiBrain from "./AiBrain";
+import MyProjects from "./MyProjects";
 
 
 interface NewTabHomeProps {
@@ -15,12 +16,13 @@ interface NewTabHomeProps {
   items: Item[];
   focusSessions: FocusSession[];
   activeSession: FocusSession | null;
-  onAddItem: (itemData: any) => Promise<void>;
+  onAddItem: (itemData: any) => Promise<any>;
   onUpdateItem: (id: string, updates: any) => Promise<void>;
   onStartSession: (projectId?: string, taskId?: string, energyLevel?: any) => Promise<void>;
   onRefresh: () => void;
   theme: 'light' | 'dark' | 'nature';
   setTheme: (theme: 'light' | 'dark' | 'nature') => void;
+  onCreateProject: (projectData: any) => Promise<void>;
 }
 
 export default function NewTabHome({
@@ -34,6 +36,7 @@ export default function NewTabHome({
   onRefresh,
   theme,
   setTheme,
+  onCreateProject,
 }: NewTabHomeProps) {
   const { t, i18n } = useTranslation();
   const [quickInput, setQuickInput] = useState("");
@@ -50,6 +53,10 @@ export default function NewTabHome({
   const [otpSent, setOtpSent] = useState(false);
   const [newProjName, setNewProjName] = useState("");
   const [newProjDesc, setNewProjDesc] = useState("");
+
+  const [tentativeItems, setTentativeItems] = useState<Record<string, boolean>>({});
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [showProjectsModal, setShowProjectsModal] = useState(false);
 
   // Greeting & local time states
   const [greeting, setGreeting] = useState("");
@@ -135,7 +142,7 @@ export default function NewTabHome({
       .replace(/^question:\s*/i, "")
       .replace(/^question\s+/i, "");
 
-    await onAddItem({
+    const newItem = await onAddItem({
       title: cleanTitle,
       content: i18n.language === "fa" ? "ثبت شده از طریق ورودی سریع روز" : "Captured via Rooz Quick Capture.",
       type,
@@ -146,6 +153,36 @@ export default function NewTabHome({
     setCaptured(true);
     setQuickInput("");
     onRefresh();
+
+    // Trigger classification asynchronously in the background
+    if (newItem && newItem.id) {
+      (async () => {
+        try {
+          const response = await fetch("/api/ai/classify-item", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: cleanTitle }),
+          });
+          if (response.ok) {
+            const data = await response.json(); // { projectId, path, isNewProject }
+            
+            if (data.isNewProject) {
+              setTentativeItems(prev => ({ ...prev, [newItem.id]: true }));
+              setTimeout(() => {
+                setTentativeItems(prev => ({ ...prev, [newItem.id]: false }));
+              }, 8000);
+            }
+
+            // Update item's project
+            await onUpdateItem(newItem.id, { projectId: data.projectId });
+            onRefresh();
+          }
+        } catch (err) {
+          console.error("Failed to automatically classify item:", err);
+        }
+      })();
+    }
+
     setTimeout(() => {
       setCaptured(false);
     }, 2500);
@@ -330,11 +367,24 @@ export default function NewTabHome({
         <div className="flex items-center justify-between border-b pb-2 transition-colors duration-300 ${
           isDark ? 'border-zinc-800' : isNature ? 'border-[#dce0cd]' : 'border-slate-100'
         }">
-          <h3 className={`text-sm font-mono tracking-wider uppercase font-bold ${
-            isDark ? "text-purple-400" : isNature ? "text-emerald-800" : "text-indigo-600"
-          }`}>
-            {i18n.language === "fa" ? "ادامه دیروز" : "Continue Yesterday"}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className={`text-sm font-mono tracking-wider uppercase font-bold ${
+              isDark ? "text-purple-400" : isNature ? "text-emerald-800" : "text-indigo-600"
+            }`}>
+              {i18n.language === "fa" ? "ادامه دیروز" : "Continue Yesterday"}
+            </h3>
+            <button
+              onClick={() => setShowProjectsModal(true)}
+              className={`text-[9px] font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition-all hover:opacity-80 cursor-pointer ${
+                isDark 
+                  ? "bg-zinc-900 border-zinc-800 text-purple-400" 
+                  : "bg-slate-50 border-slate-200/60 text-indigo-600"
+              }`}
+            >
+              <FolderTree className="w-2.5 h-2.5" />
+              <span>{i18n.language === "fa" ? "دسته‌ها" : "Categories"}</span>
+            </button>
+          </div>
           <span className={`text-xs font-mono ${isDark ? "text-zinc-600" : "text-slate-400"}`}>
             {unfinishedTasks.length > 0 
               ? (i18n.language === "fa" ? `حداکثر ۳ کار معلق` : `Showing max 3 unfinished`)
@@ -386,7 +436,7 @@ export default function NewTabHome({
                       }`}>
                         {task.title}
                       </h4>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         {isHigh && (
                           <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-sm ${
                             isDark ? "bg-red-950/40 text-red-400" : "bg-red-50 text-red-600"
@@ -399,6 +449,68 @@ export default function NewTabHome({
                             #{tag}
                           </span>
                         ))}
+                        
+                        {/* Project Path Tag */}
+                        {(() => {
+                          const proj = projects.find(p => p.id === task.projectId);
+                          if (!proj) return null;
+                          const pathStr = proj.path ? proj.path.join(" / ") : proj.name;
+                          const isTentative = tentativeItems[task.id];
+                          const isFa = i18n.language === "fa";
+
+                          return (
+                            <div className="relative inline-block select-none">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingItemId(editingItemId === task.id ? null : task.id);
+                                }}
+                                className={`text-[9px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 transition-all cursor-pointer ${
+                                  isTentative
+                                    ? "bg-purple-500/15 text-purple-400 border border-dashed border-purple-500 animate-pulse font-bold"
+                                    : isDark
+                                      ? "bg-zinc-800 text-zinc-300 border border-zinc-700/60 hover:bg-zinc-750"
+                                      : "bg-slate-50 text-slate-500 border border-slate-200/60 hover:bg-slate-100"
+                                }`}
+                                title={isFa ? "تغییر دسته‌بندی پروژه" : "Change project category"}
+                              >
+                                <span>{pathStr}</span>
+                                <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                              </button>
+
+                              {editingItemId === task.id && (
+                                <div className={`absolute z-30 top-full mt-1 left-0 w-60 rounded-xl shadow-xl border p-1 text-[10px] ${
+                                  isDark ? "bg-zinc-950 border-zinc-800 text-zinc-300" : "bg-white border-slate-100 text-slate-700"
+                                }`}>
+                                  <div className="px-2 py-1 font-bold text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800/60 mb-1">
+                                    {isFa ? "تغییر دسته‌بندی دستی" : "Assign manual category"}
+                                  </div>
+                                  <div className="max-h-36 overflow-y-auto space-y-0.5 font-sans">
+                                    {projects.map(p => (
+                                      <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          await onUpdateItem(task.id, { projectId: p.id });
+                                          setEditingItemId(null);
+                                          onRefresh();
+                                        }}
+                                        className={`w-full text-left px-2 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all truncate flex items-center gap-1.5 ${
+                                          task.projectId === p.id ? "font-bold text-indigo-500 bg-indigo-50/20" : ""
+                                        }`}
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                                        <span className="truncate">{p.path ? p.path.join(" / ") : p.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -907,6 +1019,16 @@ export default function NewTabHome({
         )}
       </div>
 
+      {showProjectsModal && (
+        <MyProjects
+          projects={projects}
+          onCreateProject={async (data) => {
+            await onCreateProject(data);
+            onRefresh();
+          }}
+          onClose={() => setShowProjectsModal(false)}
+        />
+      )}
     </div>
   );
 }

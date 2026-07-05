@@ -14,7 +14,7 @@ interface DashboardProps {
   timeline: TimelineEntry[];
   logs: AutomationLog[];
   integrations: IntegrationConfig[];
-  onAddItem: (itemData: any) => Promise<void>;
+  onAddItem: (itemData: any) => Promise<any>;
   onUpdateItem: (id: string, updates: any) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
   onCreateProject: (projectData: any) => Promise<void>;

@@ -58,6 +58,8 @@ const defaultDb = {
       symbol: "Cpu",
       status: "active",
       createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Core Platform Architecture"],
+      isAiGenerated: false,
     },
     {
       id: "project-2",
@@ -67,6 +69,8 @@ const defaultDb = {
       symbol: "Globe",
       status: "active",
       createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Alpha Landing Page"],
+      isAiGenerated: false,
     },
     {
       id: "project-3",
@@ -76,6 +80,8 @@ const defaultDb = {
       symbol: "Zap",
       status: "active",
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Automation Sandbox"],
+      isAiGenerated: false,
     },
     {
       id: "project-4",
@@ -85,7 +91,77 @@ const defaultDb = {
       symbol: "Brain",
       status: "active",
       createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "AI Reasoning Core"],
+      isAiGenerated: false,
     },
+    // Seeded Base Categories
+    {
+      id: "project-seed-1",
+      name: "تماس‌ها",
+      description: "کارهای روزمره مربوط به تماس‌ها و پیگیری‌ها",
+      color: "#3b82f6",
+      symbol: "Phone",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "تماس‌ها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-2",
+      name: "خریدها و قول‌ها",
+      description: "خرید وسایل خانه و قول‌های خانوادگی",
+      color: "#ec4899",
+      symbol: "ShoppingBag",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "خریدها و قول‌ها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-3",
+      name: "قرارها",
+      description: "قرارهای ملاقات و برنامه‌های خانوادگی",
+      color: "#f59e0b",
+      symbol: "Calendar",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "قرارها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-4",
+      name: "سلامتی",
+      description: "ورزش، درمان و مراقبت‌های شخصی سلامت",
+      color: "#10b981",
+      symbol: "Heart",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "سلامتی"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-5",
+      name: "مالی",
+      description: "حساب‌کتاب، درآمدها و مخارج روزمره",
+      color: "#84cc16",
+      symbol: "DollarSign",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "مالی"],
+      isAiGenerated: false,
+    },
+    // Default Fallback Category
+    {
+      id: "project-seed-fallback",
+      name: "نامشخص",
+      description: "دسته پیش‌فرض برای آیتم‌های دسته‌بندی نشده تحت محصولات من",
+      color: "#64748b",
+      symbol: "HelpCircle",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["محصولات من", "نامشخص"],
+      isAiGenerated: false,
+    }
   ],
   items: [
     {
@@ -1043,6 +1119,188 @@ function executeMutations(db: any, mutations: any[]) {
     }
   });
 }
+
+// AI CLASSIFICATION ENDPOINT
+app.post("/api/ai/classify-item", async (req, res) => {
+  const { title } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: "Title is required" });
+  }
+
+  const db = readDb();
+  
+  // Ensure we have a default fallback category in db
+  const fallbackProject = db.projects.find((p: any) => p.id === "project-seed-fallback") || db.projects[0];
+
+  const activeProvider = configureAIService();
+
+  if (activeProvider === "mock") {
+    // Fallback logic immediately
+    return res.json({
+      projectId: fallbackProject.id,
+      path: fallbackProject.path,
+      isNewProject: false
+    });
+  }
+
+  try {
+    const existingProjectsContext = db.projects.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      path: p.path
+    }));
+
+    const systemPrompt = `You are the classification core of the Rooz Daily Operating System. Your job is to classify a new item (task/idea/etc.) into one of the user's projects.
+Here is the JSON list of the user's existing projects:
+${JSON.stringify(existingProjectsContext, null, 2)}
+
+Strict Rules:
+1. Attempt to match the item's title semantic meaning with an existing project.
+   - For example, Persian/English similar terms should match (e.g. "وردپرس" with "Automation Hub" or "کدنویسی", "ورزش صبحگاهی" with "سلامتی").
+   - If a good semantic match is found, return the exact projectId of that project and isNewProject as false.
+2. If there is absolutely no match, you must define a NEW project path.
+   - The path must be an array of strings representing the breadcrumbs, length 1 to 3, representing Root / Child / Grandchild.
+   - Example paths: ["کارهای روزمره", "خانواده", "قرارها"] or ["محصولات من", "کدنویسی", "Automation Hub"] or ["محصولات من", "کارهای فرعی"].
+   - Try to place the new path logically under one of the existing roots like "کارهای روزمره" or "محصولات من" if appropriate, otherwise define a new root if absolutely necessary.
+   - The length of the path array MUST NOT exceed 3 elements. If it would be 4, merge or drop levels to make it exactly 3 levels.
+   - In case of a new project, return a temporary projectId like "new-project-temp" and set isNewProject to true.
+3. Your output MUST be a strict, valid JSON object with NO extra text or markdown codeblocks.
+
+JSON Schema:
+{
+  "projectId": "the matched project ID or 'new-project-temp' if creating a new one",
+  "path": ["Level1", "Level2", "Level3"], // Full path of the project (if isNewProject is true, this is the proposed path. If false, this is the existing matched project's path)
+  "isNewProject": true or false
+}`;
+
+    const userPrompt = `Classify this new item title: "${title}"`;
+
+    const response = await aiService.generate({
+      systemPrompt,
+      userPrompt,
+      responseMimeType: "application/json",
+    });
+
+    let result;
+    try {
+      result = JSON.parse(response.text.trim());
+    } catch (parseErr) {
+      console.error("Failed to parse classification AI response, falling back:", response.text, parseErr);
+      return res.json({
+        projectId: fallbackProject.id,
+        path: fallbackProject.path,
+        isNewProject: false
+      });
+    }
+
+    // Enforce path constraints
+    if (!result.path || !Array.isArray(result.path) || result.path.length === 0) {
+      result.path = fallbackProject.path;
+      result.projectId = fallbackProject.id;
+      result.isNewProject = false;
+    }
+
+    if (result.path.length > 3) {
+      result.path = result.path.slice(0, 3);
+    }
+
+    if (result.isNewProject) {
+      // Create new project in db
+      const newProjectId = "project-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+      const name = result.path[result.path.length - 1] || "پروژه جدید";
+      
+      const colors = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+      const symbols = ["Briefcase", "Code", "Brain", "Zap", "Globe", "Cpu", "Heart", "DollarSign", "ShoppingBag", "Phone", "BookOpen", "Settings"];
+      
+      const color = colors[db.projects.length % colors.length];
+      const symbol = symbols[db.projects.length % symbols.length];
+
+      const newProject = {
+        id: newProjectId,
+        name: name,
+        description: `دسته‌بندی خودکار ایجاد شده تحت عنوان: ${result.path.join(" / ")}`,
+        color,
+        symbol,
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+        path: result.path,
+        isAiGenerated: true
+      };
+
+      db.projects.push(newProject);
+      
+      db.timeline.unshift({
+        id: "timeline-" + Date.now(),
+        projectId: newProjectId,
+        type: "log",
+        description: `دسته جدید "${result.path.join(" / ")}" به طور خودکار ایجاد شد.`,
+        timestamp: new Date().toISOString()
+      });
+
+      writeDb(db);
+
+      return res.json({
+        projectId: newProjectId,
+        path: result.path,
+        isNewProject: true
+      });
+    } else {
+      // Match existing project by id, or path
+      let matchedProject = db.projects.find((p: any) => p.id === result.projectId);
+      if (!matchedProject) {
+        // Find by path match
+        matchedProject = db.projects.find((p: any) => JSON.stringify(p.path) === JSON.stringify(result.path));
+      }
+
+      if (matchedProject) {
+        return res.json({
+          projectId: matchedProject.id,
+          path: matchedProject.path,
+          isNewProject: false
+        });
+      } else {
+        // Proposed new project but model marked isNewProject as false, let's treat as new!
+        const newProjectId = "project-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+        const name = result.path[result.path.length - 1] || "پروژه جدید";
+        
+        const colors = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+        const symbols = ["Briefcase", "Code", "Brain", "Zap", "Globe", "Cpu", "Heart", "DollarSign", "ShoppingBag", "Phone", "BookOpen", "Settings"];
+        
+        const color = colors[db.projects.length % colors.length];
+        const symbol = symbols[db.projects.length % symbols.length];
+
+        const newProject = {
+          id: newProjectId,
+          name: name,
+          description: `دسته‌بندی خودکار ایجاد شده تحت عنوان: ${result.path.join(" / ")}`,
+          color,
+          symbol,
+          status: "active" as const,
+          createdAt: new Date().toISOString(),
+          path: result.path,
+          isAiGenerated: true
+        };
+
+        db.projects.push(newProject);
+        writeDb(db);
+
+        return res.json({
+          projectId: newProjectId,
+          path: result.path,
+          isNewProject: true
+        });
+      }
+    }
+
+  } catch (err) {
+    console.error("AI classify-item error, fallback:", err);
+    return res.json({
+      projectId: fallbackProject.id,
+      path: fallbackProject.path,
+      isNewProject: false
+    });
+  }
+});
 
 // Vite integration & Production assets serving
 async function startServer() {

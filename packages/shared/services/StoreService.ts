@@ -10,7 +10,7 @@ export interface StoreState extends DbState {
   
   // Actions
   init: () => Promise<void>;
-  addItem: (itemData: Partial<Item>) => Promise<void>;
+  addItem: (itemData: Partial<Item>) => Promise<Item>;
   updateItem: (id: string, updates: Partial<Item>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   createProject: (projectData: Partial<Project>) => Promise<void>;
@@ -39,6 +39,8 @@ const defaultDb: DbState = {
       symbol: "Cpu",
       status: "active",
       createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Core Platform Architecture"],
+      isAiGenerated: false,
     },
     {
       id: "project-2",
@@ -48,6 +50,8 @@ const defaultDb: DbState = {
       symbol: "Globe",
       status: "active",
       createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Alpha Landing Page"],
+      isAiGenerated: false,
     },
     {
       id: "project-3",
@@ -57,6 +61,8 @@ const defaultDb: DbState = {
       symbol: "Zap",
       status: "active",
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "Automation Sandbox"],
+      isAiGenerated: false,
     },
     {
       id: "project-4",
@@ -66,7 +72,77 @@ const defaultDb: DbState = {
       symbol: "Brain",
       status: "active",
       createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      path: ["محصولات من", "کدنویسی", "AI Reasoning Core"],
+      isAiGenerated: false,
     },
+    // Seeded Base Categories
+    {
+      id: "project-seed-1",
+      name: "تماس‌ها",
+      description: "کارهای روزمره مربوط به تماس‌ها و پیگیری‌ها",
+      color: "#3b82f6",
+      symbol: "Phone",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "تماس‌ها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-2",
+      name: "خریدها و قول‌ها",
+      description: "خرید وسایل خانه و قول‌های خانوادگی",
+      color: "#ec4899",
+      symbol: "ShoppingBag",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "خریدها و قول‌ها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-3",
+      name: "قرارها",
+      description: "قرارهای ملاقات و برنامه‌های خانوادگی",
+      color: "#f59e0b",
+      symbol: "Calendar",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "خانواده", "قرارها"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-4",
+      name: "سلامتی",
+      description: "ورزش، درمان و مراقبت‌های شخصی سلامت",
+      color: "#10b981",
+      symbol: "Heart",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "سلامتی"],
+      isAiGenerated: false,
+    },
+    {
+      id: "project-seed-5",
+      name: "مالی",
+      description: "حساب‌کتاب، درآمدها و مخارج روزمره",
+      color: "#84cc16",
+      symbol: "DollarSign",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["کارهای روزمره", "مالی"],
+      isAiGenerated: false,
+    },
+    // Default Fallback Category
+    {
+      id: "project-seed-fallback",
+      name: "نامشخص",
+      description: "دسته پیش‌فرض برای آیتم‌های دسته‌بندی نشده تحت محصولات من",
+      color: "#64748b",
+      symbol: "HelpCircle",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      path: ["محصولات من", "نامشخص"],
+      isAiGenerated: false,
+    }
   ],
   items: [
     {
@@ -483,6 +559,8 @@ export const useStore = create<StoreState>((set, get) => ({
       itemType: type,
       timestamp,
     });
+
+    return newItem;
   },
 
   updateItem: async (id, updates) => {
@@ -594,6 +672,8 @@ export const useStore = create<StoreState>((set, get) => ({
       symbol: projectData.symbol || "Folder",
       status: "active",
       createdAt: timestamp,
+      path: projectData.path || [projectData.name || "Untitled Project"],
+      isAiGenerated: !!projectData.isAiGenerated,
     };
 
     const newTimeline: TimelineEntry = {

@@ -116,7 +116,7 @@ export default function App() {
   }, []);
 
   const handleAddItem = async (itemData: any) => {
-    await addItem(itemData);
+    return await addItem(itemData);
   };
 
   const handleUpdateItem = async (id: string, updates: any) => {
@@ -396,6 +396,7 @@ export default function App() {
             onRefresh={init}
             theme={theme}
             setTheme={setTheme}
+            onCreateProject={handleCreateProject}
           />
         )}
 
