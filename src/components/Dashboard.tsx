@@ -14,6 +14,7 @@ interface DashboardProps {
   timeline: TimelineEntry[];
   logs: AutomationLog[];
   integrations: IntegrationConfig[];
+  focusSessions: FocusSession[];
   onAddItem: (itemData: any) => Promise<any>;
   onUpdateItem: (id: string, updates: any) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
@@ -28,6 +29,7 @@ export default function Dashboard({
   timeline,
   logs,
   integrations,
+  focusSessions,
   onAddItem,
   onUpdateItem,
   onDeleteItem,
@@ -126,6 +128,30 @@ export default function Dashboard({
   const completedCount = items.filter(item => item.status === "completed").length;
   const totalTasksCount = items.filter(item => item.type === "task").length;
   const completionRate = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+
+  // Calculate average deep work score per energy level
+  const energyStats = {
+    low: { total: 0, count: 0 },
+    medium: { total: 0, count: 0 },
+    high: { total: 0, count: 0 }
+  };
+
+  if (focusSessions && focusSessions.length > 0) {
+    focusSessions.forEach(session => {
+      const lvl = session.energyLevel;
+      const score = session.deepWorkScore;
+      if (lvl && score !== undefined && score !== null && energyStats[lvl]) {
+        energyStats[lvl].total += score;
+        energyStats[lvl].count += 1;
+      }
+    });
+  }
+
+  const getEnergyAvg = (level: 'low' | 'medium' | 'high') => {
+    const data = energyStats[level];
+    if (!data || data.count === 0) return null;
+    return Number((data.total / data.count).toFixed(1));
+  };
 
   return (
     <div className="space-y-6 relative" id="rooz-dashboard-root">
@@ -503,10 +529,64 @@ export default function Dashboard({
               </div>
             </div>
 
+            {/* Energy & Focus Quality Correlation */}
+            <div className="space-y-2.5">
+              <h4 className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+                {isFa ? "۲. تحلیل انرژی و کیفیت" : "2. Energy & Focus Quality"}
+              </h4>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100/50 space-y-3">
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  {isFa 
+                    ? "ارزیابی ارتباط سطح انرژی اولیه با کیفیت تمرکز عمیق (Deep Work Score)" 
+                    : "Correlation between initial energy level and experienced flow state."
+                  }
+                </p>
+                
+                <div className="space-y-2">
+                  {(["low", "medium", "high"] as const).map((lvl) => {
+                    const avg = getEnergyAvg(lvl);
+                    const label = isFa 
+                      ? lvl === "low" ? "کم (Low)" : lvl === "medium" ? "متوسط (Medium)" : "زیاد (High)"
+                      : lvl === "low" ? "Low Energy" : lvl === "medium" ? "Medium Energy" : "High Energy";
+                    const colorClass = lvl === "low" 
+                      ? "bg-sky-500" 
+                      : lvl === "medium" 
+                        ? "bg-indigo-500" 
+                        : "bg-emerald-500";
+
+                    return (
+                      <div key={lvl} className="space-y-1">
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="font-medium text-slate-600">{label}</span>
+                          {avg !== null ? (
+                            <span className="font-mono font-bold text-slate-700">{avg} / 10</span>
+                          ) : (
+                            <span className="text-slate-400 text-[9px] italic">
+                              {isFa ? "داده‌ی کافی نداریم" : "No data"}
+                            </span>
+                          )}
+                        </div>
+                        {avg !== null ? (
+                          <div className="w-full bg-slate-200/60 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className={`h-full ${colorClass} transition-all duration-500`}
+                              style={{ width: `${avg * 10}%` }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full bg-slate-200/30 rounded-full h-1.5 border border-dashed border-slate-300/40" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Automation Sandboxes */}
             <div className="space-y-2.5">
               <h4 className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                {isFa ? "۲. موتور خودکارسازی" : "2. Automation Engine"}
+                {isFa ? "۳. موتور خودکارسازی" : "3. Automation Engine"}
               </h4>
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100/50 space-y-3">
                 <p className="text-[10px] text-slate-500 leading-relaxed">
@@ -528,7 +608,7 @@ export default function Dashboard({
             {/* Connectors & Integrations */}
             <div className="space-y-2.5">
               <h4 className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                {isFa ? "۳. یکپارچه‌سازی وب" : "3. Global Connectors"}
+                {isFa ? "۴. یکپارچه‌سازی وب" : "4. Global Connectors"}
               </h4>
               <div className="space-y-2">
                 {integrations.map((integration) => (
@@ -559,7 +639,7 @@ export default function Dashboard({
             {/* Chronicle / Audit Logs */}
             <div className="space-y-2.5">
               <h4 className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                {isFa ? "۴. لاگ‌های سیستمی" : "4. Chrono System Logs"}
+                {isFa ? "۵. لاگ‌های سیستمی" : "5. Chrono System Logs"}
               </h4>
               <div className="bg-slate-900 text-slate-300 p-3 rounded-xl border border-slate-800 font-mono text-[9px] space-y-1.5 max-h-[140px] overflow-y-auto">
                 <span className="text-zinc-500 block border-b border-zinc-800 pb-1">

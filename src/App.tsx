@@ -418,6 +418,7 @@ export default function App() {
             timeline={timeline}
             logs={automationLogs}
             integrations={integrations}
+            focusSessions={focusSessions}
             onAddItem={handleAddItem}
             onUpdateItem={handleUpdateItem}
             onDeleteItem={handleDeleteItem}

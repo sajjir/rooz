@@ -4,6 +4,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Project, Item, FocusSession, EnergyLevel } from "../types";
+import ProgressRing from "./ProgressRing";
+import { motion, AnimatePresence } from "motion/react";
 
 interface FocusModeProps {
   projects: Project[];
@@ -23,10 +25,12 @@ export default function FocusMode({
   onRefresh,
 }: FocusModeProps) {
   const { t, i18n } = useTranslation();
+  const isFa = i18n.language === "fa";
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [energyLevel, setEnergyLevel] = useState<EnergyLevel>("medium");
   const [customMinutes, setCustomMinutes] = useState<number>(25);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState<boolean>(false);
   
   // Timer state
   const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
@@ -250,9 +254,11 @@ export default function FocusMode({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-300 ease-in-out">
         {/* Distraction-Free Focus Stage */}
-        <div className="lg:col-span-2 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 p-8 flex flex-col items-center justify-center relative overflow-hidden shadow-xl min-h-[420px]">
+        <div className={`bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 p-8 flex flex-col items-center justify-center relative overflow-hidden shadow-xl min-h-[460px] transition-all duration-300 ease-in-out ${
+          activeSession && !isSettingsExpanded ? "lg:col-span-3" : "lg:col-span-2"
+        }`}>
           {/* Subtle Ambient Wave Effect in Background */}
           {isRunning && (
             <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
@@ -272,50 +278,73 @@ export default function FocusMode({
             </div>
           )}
 
-          {/* Time Countdown Panel */}
-          <div className="text-center space-y-4 z-10">
-            <span className="font-mono text-7xl md:text-8xl tracking-tight text-white font-medium select-none">
-              {formatTime(timeLeft)}
-            </span>
+          {/* Time Countdown Panel with circular ProgressRing */}
+          <div className="text-center space-y-6 z-10 flex flex-col items-center justify-center w-full">
+            <ProgressRing percent={progressPercent} size={260} strokeWidth={8} color="#6366f1">
+              <span className="font-mono text-5xl md:text-6xl tracking-tight text-white font-medium select-none">
+                {formatTime(timeLeft)}
+              </span>
+            </ProgressRing>
 
-            {/* Target Label */}
-            <div className="space-y-1 py-4">
-              {activeProject ? (
-                <div className="flex items-center justify-center gap-2">
-                  <span 
-                    className="w-2.5 h-2.5 rounded-full" 
-                    style={{ backgroundColor: activeProject.color }}
-                  />
-                  <h3 className="text-lg font-medium text-slate-200">
-                    {activeProject.name}
-                  </h3>
-                </div>
-              ) : (
-                <p className="text-slate-400 italic text-sm">{t("focus.no_project_targeted")}</p>
-              )}
-              
-              {activeTask && (
-                <p className="text-indigo-400 font-mono text-xs tracking-wider uppercase">
-                  {t("focus.focusing_on", { title: activeTask.title })}
-                </p>
-              )}
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-64 bg-slate-800 rounded-full h-1.5 overflow-hidden mx-auto">
+            {/* Target Label & Summary card for Immersive Mode */}
+            {activeSession && !isSettingsExpanded ? (
               <div 
-                className="bg-indigo-500 h-full transition-all duration-1000"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+                onClick={() => setIsSettingsExpanded(true)}
+                className="p-3.5 bg-slate-850/60 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs flex items-center justify-between gap-4 text-slate-400 cursor-pointer transition-all max-w-sm w-full mx-auto select-none mt-2"
+                title={isFa ? "برای نمایش تنظیمات کامل کلیک کنید" : "Click to view full settings"}
+              >
+                <div className="flex items-center gap-2 text-left truncate">
+                  <span 
+                    className="w-2.5 h-2.5 rounded-full shrink-0" 
+                    style={{ backgroundColor: activeProject?.color || '#a1a1aa' }}
+                  />
+                  <div className="truncate">
+                    <div className="font-semibold text-slate-200 truncate">
+                      {activeProject?.name || t("focus.general_freelance")}
+                    </div>
+                    {activeTask && (
+                      <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                        {activeTask.title}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-700/50 text-[10px] font-mono font-bold text-indigo-400">
+                  <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
+                  {t(`dashboard.energy_short_${activeSession?.energyLevel || energyLevel}`)}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1 py-2">
+                {activeProject ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full" 
+                      style={{ backgroundColor: activeProject.color }}
+                    />
+                    <h3 className="text-lg font-medium text-slate-200">
+                      {activeProject.name}
+                    </h3>
+                  </div>
+                ) : (
+                  <p className="text-slate-400 italic text-sm">{t("focus.no_project_targeted")}</p>
+                )}
+                
+                {activeTask && (
+                  <p className="text-indigo-400 font-mono text-xs tracking-wider uppercase">
+                    {t("focus.focusing_on", { title: activeTask.title })}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Timer Actions */}
-            <div className="pt-6 flex justify-center gap-4">
+            <div className="pt-2 flex justify-center gap-4">
               {!activeSession ? (
                 <button
                   onClick={handleStartFocus}
                   disabled={loading}
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50"
+                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Play className="w-5 h-5 fill-white" />
                   {t("focus.btn_start")}
@@ -323,7 +352,7 @@ export default function FocusMode({
               ) : (
                 <button
                   onClick={handleStopFocus}
-                  className="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-rose-600/20 transition-all"
+                  className="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
                 >
                   <Square className="w-5 h-5 fill-white" />
                   {t("focus.btn_end")}
@@ -334,106 +363,124 @@ export default function FocusMode({
         </div>
 
         {/* Configuration Panel */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col justify-between shadow-sm">
-          <div className="space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
-                {t("focus.settings_title")}
-              </h3>
-            </div>
+        <AnimatePresence mode="wait">
+          {(!activeSession || isSettingsExpanded) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col justify-between shadow-sm"
+            >
+              <div className="space-y-5">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+                    {t("focus.settings_title")}
+                  </h3>
+                  {activeSession && (
+                    <button
+                      onClick={() => setIsSettingsExpanded(false)}
+                      className="text-xs text-indigo-600 hover:text-indigo-500 font-semibold font-mono flex items-center gap-1 cursor-pointer"
+                    >
+                      {isFa ? "← جمع کردن" : "← Collapse"}
+                    </button>
+                  )}
+                </div>
 
-            {/* Project Selection */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.target_project")}</label>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => {
-                  setSelectedProjectId(e.target.value);
-                  setSelectedTaskId(""); // Reset task
-                }}
-                disabled={!!activeSession}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-70 transition-all"
-              >
-                <option value="">{t("focus.general_freelance")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Task Selection */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.focus_task")}</label>
-              <select
-                value={selectedTaskId}
-                onChange={(e) => setSelectedTaskId(e.target.value)}
-                disabled={!!activeSession}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-70 transition-all"
-              >
-                <option value="">{t("focus.no_specific_task")}</option>
-                {filteredTasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Energy Level State */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.energy_level")}</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["low", "medium", "high"] as EnergyLevel[]).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setEnergyLevel(level)}
-                    className={`py-1.5 rounded-lg text-xs font-medium capitalize border transition-all ${
-                      energyLevel === level
-                        ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
+                {/* Project Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.target_project")}</label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => {
+                      setSelectedProjectId(e.target.value);
+                      setSelectedTaskId(""); // Reset task
+                    }}
+                    disabled={!!activeSession}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-70 transition-all"
                   >
-                    {t(`dashboard.energy_${level}`).split(" ")[0]}
-                  </button>
-                ))}
+                    <option value="">{t("focus.general_freelance")}</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Task Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.focus_task")}</label>
+                  <select
+                    value={selectedTaskId}
+                    onChange={(e) => setSelectedTaskId(e.target.value)}
+                    disabled={!!activeSession}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-70 transition-all"
+                  >
+                    <option value="">{t("focus.no_specific_task")}</option>
+                    {filteredTasks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Energy Level State */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-slate-500 uppercase">{t("focus.energy_level")}</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["low", "medium", "high"] as EnergyLevel[]).map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => setEnergyLevel(level)}
+                        className={`py-1.5 rounded-lg text-xs font-medium capitalize border transition-all cursor-pointer ${
+                          energyLevel === level
+                            ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {t(`dashboard.energy_short_${level}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Timer Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-slate-500 uppercase flex justify-between">
+                    <span>{t("focus.duration")}</span>
+                    <span>{t("focus.duration_mins", { count: customMinutes })}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="90"
+                    step="5"
+                    value={customMinutes}
+                    onChange={(e) => {
+                      const m = Number(e.target.value);
+                      setCustomMinutes(m);
+                      if (!activeSession) {
+                        setTimeLeft(m * 60);
+                        setTotalDuration(m * 60);
+                      }
+                    }}
+                    disabled={!!activeSession}
+                    className="w-full accent-indigo-600 cursor-pointer disabled:opacity-50"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Custom Timer Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-500 uppercase flex justify-between">
-                <span>{t("focus.duration")}</span>
-                <span>{t("focus.duration_mins", { count: customMinutes })}</span>
-              </label>
-              <input
-                type="range"
-                min="5"
-                max="90"
-                step="5"
-                value={customMinutes}
-                onChange={(e) => {
-                  const m = Number(e.target.value);
-                  setCustomMinutes(m);
-                  if (!activeSession) {
-                    setTimeLeft(m * 60);
-                    setTotalDuration(m * 60);
-                  }
-                }}
-                disabled={!!activeSession}
-                className="w-full accent-indigo-600 cursor-pointer disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-50 text-slate-400 text-[11px] font-mono leading-relaxed space-y-1">
-            <div>{t("focus.bullet_1")}</div>
-            <div>{t("focus.bullet_2")}</div>
-            <div>{t("focus.bullet_3")}</div>
-          </div>
-        </div>
+              <div className="pt-6 border-t border-slate-50 text-slate-400 text-[11px] font-mono leading-relaxed space-y-1">
+                <div>{t("focus.bullet_1")}</div>
+                <div>{t("focus.bullet_2")}</div>
+                <div>{t("focus.bullet_3")}</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Log Session Modal */}
@@ -479,13 +526,13 @@ export default function FocusMode({
                       key={level}
                       type="button"
                       onClick={() => setEnergyLevel(level)}
-                      className={`py-1.5 rounded-lg text-xs font-medium capitalize border transition-all ${
+                      className={`py-1.5 rounded-lg text-xs font-medium capitalize border transition-all cursor-pointer ${
                         energyLevel === level
                           ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      {t(`dashboard.energy_${level}`).split(" ")[0]}
+                      {t(`dashboard.energy_short_${level}`)}
                     </button>
                   ))}
                 </div>

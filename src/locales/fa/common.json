@@ -3,7 +3,7 @@
     "loading": "در حال بارگذاری نمونه شناختی...",
     "title": "روز",
     "subtitle": "یک روز، یک مسیر",
-    "tab_focus": "مرحله تمرکز",
+    "tab_focus": "شروع کار عمیق",
     "tab_dashboard": "داشبورد فضای کار",
     "tab_ai": "شناخت هوش مصنوعی",
     "focus_goal_progress": "{{count}} دقیقه",
@@ -13,7 +13,7 @@
     "no_alerts": "هیچ هشدار اعلانی وجود ندارد."
   },
   "focus": {
-    "title": "حالت تمرکز",
+    "title": "کار عمیق",
     "subtitle": "«تنها یک پروژه وجود دارد. همه چیزهای دیگر ناپدید می‌شوند. صفر درصد حواس‌پرتی.»",
     "ambient_synth": "سینث‌سایزر محیطی",
     "alpha_waves_on": "امواج آلفا: روشن",
@@ -78,6 +78,9 @@
     "energy_low": "انرژی پایین (آسان)",
     "energy_medium": "انرژی متوسط",
     "energy_high": "انرژی بالا (عمیق)",
+    "energy_short_low": "کم",
+    "energy_short_medium": "متوسط",
+    "energy_short_high": "زیاد",
     "item_form_duration": "تخمین زمان (دقیقه)",
     "item_form_tags": "برچسب‌ها (با کاما جدا شوند)",
     "placeholder_tags": "پایگاه‌داده، هسته، ای‌پی‌آی، ویژگی-۱",

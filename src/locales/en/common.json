@@ -3,7 +3,7 @@
     "loading": "LOADING COGNITIVE INSTANCE...",
     "title": "Rooz",
     "subtitle": "One Day. One Direction.",
-    "tab_focus": "Focus Stage",
+    "tab_focus": "Start Deep Work",
     "tab_dashboard": "Workspace Dashboard",
     "tab_ai": "AI Cognitive",
     "focus_goal_progress": "{{count}}m",
@@ -13,7 +13,7 @@
     "no_alerts": "No notification alerts."
   },
   "focus": {
-    "title": "Focus Mode",
+    "title": "Deep Work",
     "subtitle": "\"Only one project exists. Everything else disappears. Zero distractions.\"",
     "ambient_synth": "Ambient Synth",
     "alpha_waves_on": "Alpha Waves: ON",
@@ -78,6 +78,9 @@
     "energy_low": "Low Energy (easy)",
     "energy_medium": "Medium Energy",
     "energy_high": "High Energy (deep)",
+    "energy_short_low": "Low",
+    "energy_short_medium": "Medium",
+    "energy_short_high": "High",
     "item_form_duration": "Minutes Estimate",
     "item_form_tags": "Tags (comma separated)",
     "placeholder_tags": "db, core, api, feature-1",
